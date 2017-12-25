@@ -199,10 +199,7 @@ def convert_box_to_original(im_width, im_height, best_boxes, best_rotation_angle
 
 def crop_image_to_corner(original,isLeftSide=True):
   (width, height) = original.size   # Get dimensions
-  left = 0
-  right = 0
-  top = 0
-  bottom = 0
+  left, top, right, bottom = 0,0,0,0
   if isLeftSide:
     left = 0
     top = height/2
@@ -217,15 +214,16 @@ def crop_image_to_corner(original,isLeftSide=True):
   return cropped_image
 
 def corner_to_panoramic(rotated_box_points,isLeftSide=True):
+  ymin,xmin,ymax,xmax = 0,0,0,0
   ymi, xmi, yma, xma = rotated_box_points
   ratio = 0.75 #3/4
   if isLeftSide:
     ratio = 0 #1/4
-  else:
-    ymin = 0.5 + ymi/2
-    xmin = ratio + xmi/4
-    ymax = 0.5 + yma/2
-    xmax = ratio + xma/4
+
+  ymin = 0.5 + ymi/2
+  xmin = ratio + xmi/4
+  ymax = 0.5 + yma/2
+  xmax = ratio + xma/4
   return ymin,xmin,ymax,xmax
 
 def rotate_image(cover, val):
