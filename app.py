@@ -255,14 +255,8 @@ def detect_objects(image_path):
   best_num_detections = left_img_best_num_detections
   best_rotation_angle = left_img_best_rotation_angle
   best_image_brightness = left_img_best_image_brightness
-  isRightCornerGotHigherScore = left_img_best_scores[0] < right_img_best_scores[0]
-  if isRightCornerGotHigherScore:
-    cropped_image = corner_right_img
-    best_boxes = right_img_best_boxes
-    best_scores = right_img_best_scores
-    best_classes = right_img_best_classes
-    best_num_detections = right_img_best_num_detections
-    best_rotation_angle = right_img_best_rotation_angle
+  isLeftCornerGotHigherScore = left_img_best_scores[0] > right_img_best_scores[0]
+
   max_score = best_scores[0]
   image.thumbnail((480, 480), Image.ANTIALIAS)
   new_images = {}
@@ -271,9 +265,23 @@ def detect_objects(image_path):
   cls = best_classes[0]
   if cls not in new_images.keys():
     new_images[cls] = image.copy()
-
-  ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,isRightCornerGotHigherScore==False)
+  ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,True) #left side
   draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
+  
+  cropped_image = corner_right_img
+  best_boxes = right_img_best_boxes
+  best_scores = right_img_best_scores
+  best_classes = right_img_best_classes
+  best_num_detections = right_img_best_num_detections
+  best_rotation_angle = right_img_best_rotation_angle
+  
+  rotated_box_points = convert_box_to_original(im_width, im_height, best_boxes,best_rotation_angle)
+  cls = best_classes[0]
+  if cls not in new_images.keys():
+    new_images[cls] = image.copy()
+  ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,False) # right side
+  draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
+  
   result = {}
   result['original'] = encode_image(image.copy())
   result['score'] = [best_image_brightness, best_rotation_angle, round(max_score*100,3)]
@@ -282,7 +290,7 @@ def detect_objects(image_path):
     result[category] = encode_image(new_image)
   return result
 
-#unused finctions
+#unused functions
 def get_boxed_image(image):
   cropped_image = crop_image_to_corner(image)
   boxes, scores, classes, num_detections = client.detect(cropped_image)
