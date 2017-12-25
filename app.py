@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 # Copyright 2017 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +48,6 @@ from PIL import Image,ImageDraw,ImageFilter,ImageOps,ImageEnhance
 
 
 app = Flask(__name__)
-client = ObjectDetector()
 
 @app.before_request
 @requires_auth
@@ -333,5 +335,7 @@ def post():
                            photo_form=photo_form, result=result)
   else:
     return redirect(url_for('upload'))
+
+client = ObjectDetector()
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=80, debug=False)
