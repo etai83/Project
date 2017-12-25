@@ -17,7 +17,7 @@ import base64
 import cStringIO
 import sys
 import tempfile
-import math 
+import math
 
 MODEL_BASE = '/home/itaizloto/Downloads/models'
 sys.path.append(MODEL_BASE)
@@ -45,7 +45,7 @@ from PIL import Image,ImageDraw,ImageFilter,ImageOps,ImageEnhance
 
 
 app = Flask(__name__)
-
+client = ObjectDetector()
 
 @app.before_request
 @requires_auth
@@ -148,12 +148,12 @@ def encode_image(image):
 def load_image(image_path):
   image = Image.open(image_path).convert('RGB')
   return image
-  
+# helper functions
 def split_image_to_corners(image):
   corner_left = crop_image_to_corner(image,True)
   corner_right = crop_image_to_corner(image,False)
   return corner_left, corner_right
-  
+
 def find_best_augmentation(image, num_results,brightness_span=1,angle=90):
   best_score = 0
   best_scores = []
@@ -164,7 +164,7 @@ def find_best_augmentation(image, num_results,brightness_span=1,angle=90):
   best_image_brightness = 0
   max_current_score = 0
   contrast = ImageEnhance.Contrast(image)
-  
+
   for val_bright in range(10-brightness_span,10+brightness_span+1):
     for val_rotate in range(0,360,angle):
       if val_rotate != 0:
@@ -181,7 +181,7 @@ def find_best_augmentation(image, num_results,brightness_span=1,angle=90):
           best_rotation_angle = val_rotate
           best_image_brightness = val_bright
   return best_boxes, best_scores, best_classes, best_num_detections, best_rotation_angle, best_image_brightness
-  
+
 def convert_box_to_original(im_width, im_height, best_boxes, best_rotation_angle):
   ymin, xmin, ymax, xmax = best_boxes[0]
   image_center_point = [0.5,0.5]
@@ -194,8 +194,7 @@ def convert_box_to_original(im_width, im_height, best_boxes, best_rotation_angle
   xmax_rotated = np.max([new_lb_point[1],new_rb_point[1],new_lt_point[1],new_rt_point[1]])
   ymax_rotated = np.max([new_lb_point[0],new_rb_point[0],new_lt_point[0],new_rt_point[0]])
   return [ymin_rotated,xmin_rotated,ymax_rotated,xmax_rotated]
-  
-# helper functions
+
 def crop_image_to_corner(original,isLeftSide=True):
   (width, height) = original.size   # Get dimensions
   left = 0
@@ -213,7 +212,7 @@ def crop_image_to_corner(original,isLeftSide=True):
     right = width
     bottom = height
   cropped_image = original.crop((left, top, right, bottom))
-  return cropped_image 
+  return cropped_image
 
 def corner_to_panoramic(rotated_box_points,isLeftSide=True):
   ymi, xmi, yma, xma = rotated_box_points
@@ -230,7 +229,7 @@ def corner_to_panoramic(rotated_box_points,isLeftSide=True):
 def rotate_image(cover, val):
   rotated_img = imutils.rotate_bound(cover, val)
   return rotated_img
-  
+
 def point_rotate(origin, point, angle):
   """
   Rotate a point counterclockwise by a given angle around a given origin.
@@ -242,8 +241,8 @@ def point_rotate(origin, point, angle):
   qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
   qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
   return qy, qx
-  
-# main  
+
+# main
 def detect_objects(image_path):
   image  = load_image(image_path)
   corner_left_img, corner_right_img = split_image_to_corners(image)
@@ -282,8 +281,8 @@ def detect_objects(image_path):
     category = client.category_index[cls]['name']
     result[category] = encode_image(new_image)
   return result
-  
 
+#unused finctions
 def get_boxed_image(image):
   cropped_image = crop_image_to_corner(image)
   boxes, scores, classes, num_detections = client.detect(cropped_image)
@@ -303,6 +302,7 @@ def get_boxed_image(image):
     draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
   return new_images, max_score
 
+# Flask API
 @app.route('/')
 def upload():
   #uploaded_file = request.files.get('file')
@@ -317,7 +317,6 @@ def upload():
   #)
   photo_form = PhotoForm(request.form)
   return render_template('upload.html', photo_form=photo_form, result={})
-
 
 @app.route('/post', methods=['GET', 'POST'])
 def post():
@@ -334,10 +333,5 @@ def post():
                            photo_form=photo_form, result=result)
   else:
     return redirect(url_for('upload'))
-
-
-client = ObjectDetector()
-
-
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=80, debug=False)
