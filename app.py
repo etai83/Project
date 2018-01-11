@@ -55,7 +55,7 @@ def before_request():
   pass
 
 
-PATH_TO_CKPT = MODEL_BASE + '/object_detection/faster_rcnn_graph_100118/frozen_inference_graph.pb'
+PATH_TO_CKPT = MODEL_BASE + '/object_detection/pathology_graph_faster_rcnn_final/frozen_inference_graph.pb'
 PATH_TO_LABELS = MODEL_BASE + '/object_detection/data/object-detection.pbtxt'
 
 content_types = {'jpg': 'image/jpeg',
@@ -249,8 +249,10 @@ def detect_objects(image_path):
   
   corner_images = [corner_left_img, corner_right_img]
   images_scores = []
-  new_images = {}
+  result = {}
+  new_panoramic_images = {}
   for idx, cropped_image in enumerate(corner_images):
+    new_corner_images = {}
     boxes, scores, classes, num_detections = client.detect(cropped_image)
     if scores[0] < 0.5:
       images_scores.append(0)
@@ -260,17 +262,25 @@ def detect_objects(image_path):
     image.thumbnail((480, 480), Image.ANTIALIAS)
     
     (im_width, im_height) = cropped_image.size
-    rotated_box_points = convert_box_to_original(im_width, im_height, boxes,0)
+    corner_box_points = convert_box_to_original(im_width, im_height, boxes,0)
     cls = classes[0]
-    if cls not in new_images.keys():
-	  new_images[cls] = image.copy()
-    ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,idx==0) #left side
-    draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
+    if cls not in new_panoramic_images.keys():
+      new_panoramic_images[cls] = image.copy()
+    if cls not in new_corner_images.keys():
+      new_corner_images[cls] = cropped_image.copy()
+    ymin,xmin,ymax,xmax = corner_to_panoramic(corner_box_points,idx==0)
+    # for pathology - panoramic
+    draw_bounding_box_on_image(new_panoramic_images[cls], [ymin,xmin,ymax,xmax])
+    # for corners
+    draw_bounding_box_on_image(new_corner_images[cls], [boxes[0][0],boxes[0][1],boxes[0][2],boxes[0][3]])
+    side = 'Left'
+    if idx==1:
+      side = 'Right'
+    result[side] = encode_image(new_corner_images[cls])
   
-  result = {}
   result['original'] = encode_image(image.copy())
-  result['score'] = [round(scor*100,3) for scor in images_scores]
-  for cls, new_image in new_images.iteritems():
+  #result['score'] = [round(scor*100,3) for scor in images_scores]
+  for cls, new_image in new_panoramic_images.iteritems():
     category = client.category_index[cls]['name']
     result[category] = encode_image(new_image)
   return result
