@@ -55,7 +55,7 @@ def before_request():
   pass
 
 
-PATH_TO_CKPT = MODEL_BASE + '/object_detection/pathology_graph_faster_rcnn_final/frozen_inference_graph.pb'
+PATH_TO_CKPT = MODEL_BASE + '/object_detection/faster_rcnn_graph_100118/frozen_inference_graph.pb'
 PATH_TO_LABELS = MODEL_BASE + '/object_detection/data/object-detection.pbtxt'
 
 content_types = {'jpg': 'image/jpeg',
@@ -246,45 +246,56 @@ def point_rotate(origin, point, angle):
 def detect_objects(image_path):
   image  = load_image(image_path)
   corner_left_img, corner_right_img = split_image_to_corners(image)
-  left_img_best_boxes, left_img_best_scores, left_img_best_classes, left_img_best_num_detections, left_img_best_rotation_angle, left_img_best_image_brightness = find_best_augmentation(corner_left_img,0,BRIGHTNESS, ANGLE)
-  right_img_best_boxes, right_img_best_scores, right_img_best_classes, right_img_best_num_detections, right_img_best_rotation_angle, right_img_best_image_brightness = find_best_augmentation(corner_right_img,0,BRIGHTNESS, ANGLE)
-  cropped_image = corner_left_img
-  best_boxes = left_img_best_boxes
-  best_scores = left_img_best_scores
-  best_classes = left_img_best_classes
-  best_num_detections = left_img_best_num_detections
-  best_rotation_angle = left_img_best_rotation_angle
-  best_image_brightness = left_img_best_image_brightness
-  isLeftCornerGotHigherScore = left_img_best_scores[0] > right_img_best_scores[0]
-
-  max_score = best_scores[0]
-  image.thumbnail((480, 480), Image.ANTIALIAS)
+  # left_img_best_boxes, left_img_best_scores, left_img_best_classes, left_img_best_num_detections, left_img_best_rotation_angle, left_img_best_image_brightness = find_best_augmentation(corner_left_img,0,BRIGHTNESS, ANGLE)
+  # right_img_best_boxes, right_img_best_scores, right_img_best_classes, right_img_best_num_detections, right_img_best_rotation_angle, right_img_best_image_brightness = find_best_augmentation(corner_right_img,0,BRIGHTNESS, ANGLE)
+  # cropped_image = corner_left_img
+  # best_boxes = left_img_best_boxes
+  # best_scores = left_img_best_scores
+  # best_classes = left_img_best_classes
+  # best_num_detections = left_img_best_num_detections
+  # best_rotation_angle = left_img_best_rotation_angle
+  # best_image_brightness = left_img_best_image_brightness
+  # isLeftCornerGotHigherScore = left_img_best_scores[0] > right_img_best_scores[0]
+  
+  corner_images = [corner_left_img, corner_right_img]
+  images_scores = []
   new_images = {}
-  (im_width, im_height) = cropped_image.size
-  rotated_box_points = convert_box_to_original(im_width, im_height, best_boxes,best_rotation_angle)
-  cls = best_classes[0]
-  if cls not in new_images.keys():
-    new_images[cls] = image.copy()
-  ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,True) #left side
-  draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
+  for idx, cropped_image in enumerate(corner_images):
+    boxes, scores, classes, num_detections = client.detect(cropped_image)
+    if scores[0] < 0.5:
+      images_scores.append(0)
+      continue
+	  
+    images_scores.append(scores[0])
+    # max_score = best_scores[0]
+    image.thumbnail((480, 480), Image.ANTIALIAS)
+    
+    (im_width, im_height) = cropped_image.size
+    rotated_box_points = convert_box_to_original(im_width, im_height, boxes,0)
+    cls = classes[0]
+    if cls not in new_images.keys():
+	  new_images[cls] = image.copy()
+    ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,idx==0) #left side
+    draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
+    
   
-  cropped_image = corner_right_img
-  best_boxes = right_img_best_boxes
-  best_scores = right_img_best_scores
-  best_classes = right_img_best_classes
-  best_num_detections = right_img_best_num_detections
-  best_rotation_angle = right_img_best_rotation_angle
+  # cropped_image = corner_right_img
+  # best_boxes = right_img_best_boxes
+  # best_scores = right_img_best_scores
+  # best_classes = right_img_best_classes
+  # best_num_detections = right_img_best_num_detections
+  # best_rotation_angle = right_img_best_rotation_angle
   
-  rotated_box_points = convert_box_to_original(im_width, im_height, best_boxes,best_rotation_angle)
-  cls = best_classes[0]
-  if cls not in new_images.keys():
-    new_images[cls] = image.copy()
-  ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,False) # right side
-  draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
+  # rotated_box_points = convert_box_to_original(im_width, im_height, best_boxes,best_rotation_angle)
+  # cls = best_classes[0]
+  # if cls not in new_images.keys():
+    # new_images[cls] = image.copy()
+  # ymin,xmin,ymax,xmax = corner_to_panoramic(rotated_box_points,False) # right side
+  # draw_bounding_box_on_image(new_images[cls], [ymin,xmin,ymax,xmax])
   
   result = {}
   result['original'] = encode_image(image.copy())
-  result['score'] = [best_image_brightness, best_rotation_angle, round(max_score*100,3)]
+  result['score'] = [round(scor*100,3) for scor in images_scores]
   for cls, new_image in new_images.iteritems():
     category = client.category_index[cls]['name']
     result[category] = encode_image(new_image)

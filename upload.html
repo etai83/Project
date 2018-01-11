@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>Pathology Detector</title>
+    <link rel='shortcut icon' href='favicon.ico'/>
+    <style>
+		html{ background-color: #F0F0F0; }
+		body{ text-align: center; margin: 0;} 
+		.align_left{ float: left; }
+		#result{ margin:0 auto; width:1000px; }
+		#welcome{ width: 500px; height: 250px; margin: 0 auto; padding: 20px;}
+		#btn_upload{background-color: #05bbca; color: white;}
+    </style>
+    <script language="javascript" type="text/javascript">
+       function ChangePhoto(name, img) {
+        img = typeof img !== 'undefined' ? img : "{{ result['original'] }}";
+        target = document.getElementById("label");
+        target.innerHTML = name;
+        target = document.getElementById("photo");
+        target.src = img;
+      }
+
+      function WaitDisplay() {
+        target = document.getElementById("result");
+        target.style.display="none";
+        target = document.getElementById("loading");
+        target.style.display="";
+        setTimeout(function() {
+          document.getElementById("upload").submit();}, 100);
+        }
+    </script>
+
+  </head>
+  <body>
+
+    {% from "_formhelpers.html" import render_field %}
+<div id="welcome">
+    <h1>Pathology Detector</h1>
+    <h3>Upload a panoramic image and find a pathology</h3>
+    <div id="upload_image">
+      <form id="upload" method=post action={{ url_for('post') }} enctype="multipart/form-data">
+        {{ render_field(photo_form.input_photo) }}
+        <input id="btn_upload" type="button" onclick="WaitDisplay();" value="Upload">
+      </form>
+    </div>
+</div>
+    <hr>
+<div id="result">
+      {% if result|length > 0 %}
+    <div id="original-image" class="align_left">
+	<div id="original-label">original</div>
+	<div><img id="original-photo" src="{{ result['original'] }}" align="left" hspace="10" vspace="10"></div>
+    </div>
+    <div id="pathology-image" class="align_left">
+
+        <div id="label">pathology <b>{{ result['score'] }}%</b></div>
+        <div><img id="photo" src="{{ result['pathology'] }}" align="left" hspace="10" vspace="10"></div>
+ <!--      <p>
+          <a href="javascript:void(0);" onclick="ChangePhoto('original');">original</a>
+          </br>
+  	  {% for name, img in result.iteritems() %}
+            {% if name != 'original' %}
+              <a href="javascript:void(0);"
+                 onclick="ChangePhoto('{{ name }}', '{{ result[ name ] }}');">{{ name }}</a>
+              </br>
+            {% endif %}
+          {% endfor %}
+        </p>
+   -->   
+    </div>
+	{% endif %}
+</div>
+    <div id="loading" style="display:none">
+      <h2>Detecting Objects...</h2>
+    </div>
+
+  </body>
+</html>
